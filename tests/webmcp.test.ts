@@ -243,7 +243,7 @@ describe("WebMCP server adapters and shared booking state", () => {
     });
   });
 
-  it("uses the shared booking domain for agent create, update, and cancel", async () => {
+  it("uses the shared booking domain for WebMCP create, update, and cancel", async () => {
     const repository = new MemoryAgentRepository();
     const repositories = { businesses: repository, bookings: repository };
     const availability = await executeBusinessAgentTool(repositories, "aria-hair", "get_available_slots", { service_id: EXECUTIVE_ID, date: "2026-08-28", staff_id: ALEX_ID, after_time: "18:00" }, { now: FIXED_NOW });
@@ -258,8 +258,8 @@ describe("WebMCP server adapters and shared booking state", () => {
       customer_email: "nadia@example.com",
     }, { now: FIXED_NOW });
     expect(created).toMatchObject({ success: true, status: "confirmed", service: { id: EXECUTIVE_ID }, start_time: "18:00" });
-    expect(repository.bookings[0]).toMatchObject({ createdVia: "agent", status: "confirmed" });
-    if (!created.success) throw new Error("Expected agent booking creation to succeed.");
+    expect(repository.bookings[0]).toMatchObject({ createdVia: "webmcp", status: "confirmed" });
+    if (!created.success) throw new Error("Expected WebMCP booking creation to succeed.");
     const reference = String(created.booking_reference);
 
     const updated = await executeBusinessAgentTool(repositories, "aria-hair", "update_booking", {
@@ -289,5 +289,21 @@ describe("WebMCP server adapters and shared booking state", () => {
     await expect(executeBusinessAgentTool(repositories, "aria-hair", "cancel_booking", { booking_reference: reference, customer_email: "wrong@example.com" })).resolves.toMatchObject({ success: false, error: "booking_not_found" });
     repository.currentCapabilities = { ...repository.currentCapabilities, booking: false };
     await expect(executeBusinessAgentTool(repositories, "aria-hair", "create_booking", { service_id: CLASSIC_ID, staff_id: ALEX_ID, date: "2026-08-28", start_time: "11:00", customer_name: "Sam", customer_email: "sam@example.com" }, { now: FIXED_NOW })).resolves.toMatchObject({ success: false, error: "capability_not_enabled" });
+  });
+
+  it("rejects client-supplied booking provenance", async () => {
+    const repository = new MemoryAgentRepository();
+    const result = await executeBusinessAgentTool({ businesses: repository, bookings: repository }, "aria-hair", "create_booking", {
+      service_id: CLASSIC_ID,
+      staff_id: ALEX_ID,
+      date: "2026-08-28",
+      start_time: "10:00",
+      customer_name: "Sam",
+      customer_email: "sam@example.com",
+      created_via: "website",
+      source: "website",
+    }, { now: FIXED_NOW });
+    expect(result).toMatchObject({ success: false, error: "invalid_input" });
+    expect(repository.bookings).toHaveLength(0);
   });
 });

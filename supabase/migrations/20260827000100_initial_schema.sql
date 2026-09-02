@@ -97,7 +97,7 @@ create table public.bookings (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   constraint bookings_status_check check (status in ('confirmed', 'cancelled')),
-  constraint bookings_created_via_check check (created_via in ('website', 'agent')),
+  constraint bookings_created_via_check check (created_via in ('website', 'webmcp')),
   constraint bookings_time_check check (end_time > start_time)
 );
 

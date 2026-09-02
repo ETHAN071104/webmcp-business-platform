@@ -1,5 +1,5 @@
 import {
-  createBooking,
+  createWebsiteBooking,
   getAvailableSlots,
   getEligibleStaff,
 } from "@/features/bookings/service";
@@ -55,7 +55,7 @@ export async function POST(request: Request, { params }: Context) {
     const repository = createSupabaseBookingRepository();
     const business = await publicBusiness(repository, slug);
     const data = await readJsonObject(request);
-    const booking = await createBooking(repository, {
+    const booking = await createWebsiteBooking(repository, {
       businessId: business.id,
       serviceId: requiredString(data, "serviceId"),
       staffId: requiredString(data, "staffId"),
@@ -64,7 +64,6 @@ export async function POST(request: Request, { params }: Context) {
       customerName: requiredString(data, "customerName"),
       customerEmail: optionalString(data, "customerEmail"),
       customerPhone: optionalString(data, "customerPhone"),
-      createdVia: "website",
       audience: "public",
     });
     return Response.json({ ok: true, booking }, { status: 201 });

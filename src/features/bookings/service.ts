@@ -167,21 +167,22 @@ export async function getAvailableSlots(
   return [...starts.entries()].sort(([left], [right]) => left - right).map(([, slot]) => slot);
 }
 
-export async function createBooking(
+type BookingCreationInput = {
+  businessId: string;
+  serviceId: string;
+  staffId: string;
+  date: string;
+  startTime: string;
+  customerName: string;
+  customerEmail?: string | null;
+  customerPhone?: string | null;
+  audience: BookingAudience;
+  now?: Date;
+};
+
+async function createBookingWithSource(
   repository: BookingRepository,
-  input: {
-    businessId: string;
-    serviceId: string;
-    staffId: string;
-    date: string;
-    startTime: string;
-    customerName: string;
-    customerEmail?: string | null;
-    customerPhone?: string | null;
-    createdVia: BookingCreatedVia;
-    audience: BookingAudience;
-    now?: Date;
-  },
+  input: BookingCreationInput & { createdVia: BookingCreatedVia },
   referenceFactory: (slug: string) => string = generateBookingReference,
 ): Promise<BookingPublicDetails> {
   const business = await requireBookingBusiness({ repository, businessId: input.businessId, audience: input.audience, operation: "create_booking" });
@@ -228,6 +229,22 @@ export async function createBooking(
     }
   }
   throw new BookingError("INVALID_INPUT", "Could not generate a booking reference. Please try again.");
+}
+
+export function createWebsiteBooking(
+  repository: BookingRepository,
+  input: BookingCreationInput,
+  referenceFactory?: (slug: string) => string,
+): Promise<BookingPublicDetails> {
+  return createBookingWithSource(repository, { ...input, createdVia: "website" }, referenceFactory);
+}
+
+export function createWebMCPBooking(
+  repository: BookingRepository,
+  input: BookingCreationInput,
+  referenceFactory?: (slug: string) => string,
+): Promise<BookingPublicDetails> {
+  return createBookingWithSource(repository, { ...input, createdVia: "webmcp" }, referenceFactory);
 }
 
 export async function getBooking(

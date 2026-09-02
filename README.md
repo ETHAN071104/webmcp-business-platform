@@ -120,7 +120,7 @@ Tool callbacks send structured JSON to the same-origin route:
 
 The route validates untrusted arguments again and delegates to existing business and
 booking operations. It never sends Supabase credentials or raw rows to the browser.
-Agent creation fixes `created_via` to `agent`; callers cannot override it.
+WebMCP creation fixes `created_via` to `webmcp`; callers cannot override it.
 
 The locked page-scoped tool set is:
 

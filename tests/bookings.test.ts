@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   cancelBooking,
-  createBooking,
+  createWebsiteBooking,
   getAvailableSlots,
   getBooking,
   getEligibleStaff,
@@ -210,7 +210,7 @@ describe("booking feature layer", () => {
     repository.bookings.push(existingBooking());
     repository.capabilities[0] = capabilities({ booking: false });
     await expect(getAvailableSlots(repository, { businessId: BUSINESS_ID, serviceId: SERVICE_ID, staffId: STAFF_ID, date: "2026-08-27", audience: "public", now: FIXED_NOW })).rejects.toMatchObject({ code: "capability_not_enabled" });
-    await expect(createBooking(repository, { businessId: BUSINESS_ID, serviceId: SERVICE_ID, staffId: STAFF_ID, date: "2026-08-27", startTime: "10:00", customerName: "Nadia", customerEmail: "nadia@example.com", createdVia: "website", audience: "public", now: FIXED_NOW })).rejects.toMatchObject({ code: "capability_not_enabled" });
+    await expect(createWebsiteBooking(repository, { businessId: BUSINESS_ID, serviceId: SERVICE_ID, staffId: STAFF_ID, date: "2026-08-27", startTime: "10:00", customerName: "Nadia", customerEmail: "nadia@example.com", audience: "public", now: FIXED_NOW })).rejects.toMatchObject({ code: "capability_not_enabled" });
     await expect(updateBooking(repository, { businessId: BUSINESS_ID, reference: "ARIA-EXIST1", verification: "sam@example.com", staffId: STAFF_ID, date: "2026-08-27", startTime: "12:00", audience: "public", now: FIXED_NOW })).rejects.toMatchObject({ code: "capability_not_enabled" });
     await expect(cancelBooking(repository, { businessId: BUSINESS_ID, reference: "ARIA-EXIST1", verification: "sam@example.com", audience: "public" })).rejects.toMatchObject({ code: "capability_not_enabled" });
     await expect(getBooking(repository, { businessId: BUSINESS_ID, reference: "ARIA-NOPE00", verification: "x@example.com", audience: "public" })).rejects.toMatchObject({ code: "capability_not_enabled" });
@@ -218,25 +218,25 @@ describe("booking feature layer", () => {
 
   it("rejects booking creation when configured booking lacks service or staff dependencies", async () => {
     const repository = new MemoryBookingRepository();
-    const input = { businessId: BUSINESS_ID, serviceId: SERVICE_ID, staffId: STAFF_ID, date: "2026-08-27", startTime: "10:00", customerName: "Nadia", customerEmail: "nadia@example.com", createdVia: "website" as const, audience: "public" as const, now: FIXED_NOW };
+    const input = { businessId: BUSINESS_ID, serviceId: SERVICE_ID, staffId: STAFF_ID, date: "2026-08-27", startTime: "10:00", customerName: "Nadia", customerEmail: "nadia@example.com", audience: "public" as const, now: FIXED_NOW };
     repository.capabilities[0] = capabilities({ booking: true, services: false, staff: true });
-    await expect(createBooking(repository, input)).rejects.toMatchObject({ code: "capability_not_enabled" });
+    await expect(createWebsiteBooking(repository, input)).rejects.toMatchObject({ code: "capability_not_enabled" });
     repository.capabilities[0] = capabilities({ booking: true, services: true, staff: false });
-    await expect(createBooking(repository, input)).rejects.toMatchObject({ code: "capability_not_enabled" });
+    await expect(createWebsiteBooking(repository, input)).rejects.toMatchObject({ code: "capability_not_enabled" });
   });
 
   it("proves booking ON → OFF → ON across the real feature operations", async () => {
     const repository = new MemoryBookingRepository();
     repository.bookings.push(existingBooking());
     const slotsInput = { businessId: BUSINESS_ID, serviceId: SERVICE_ID, staffId: STAFF_ID, date: "2026-08-27", audience: "public" as const, now: FIXED_NOW };
-    const createInput = { ...slotsInput, startTime: "10:00", customerName: "Nadia", customerEmail: "nadia@example.com", createdVia: "website" as const };
+    const createInput = { ...slotsInput, startTime: "10:00", customerName: "Nadia", customerEmail: "nadia@example.com" };
     const verifiedInput = { businessId: BUSINESS_ID, reference: "ARIA-EXIST1", verification: "sam@example.com", audience: "public" as const };
 
     await expect(getAvailableSlots(repository, slotsInput)).resolves.toContainEqual({ startTime: "10:00", endTime: "10:30" });
 
     repository.capabilities[0] = capabilities({ booking: false });
     await expect(getAvailableSlots(repository, slotsInput)).rejects.toMatchObject({ code: "capability_not_enabled" });
-    await expect(createBooking(repository, createInput)).rejects.toMatchObject({ code: "capability_not_enabled" });
+    await expect(createWebsiteBooking(repository, createInput)).rejects.toMatchObject({ code: "capability_not_enabled" });
     await expect(updateBooking(repository, { ...verifiedInput, staffId: STAFF_ID, date: "2026-08-27", startTime: "12:00", now: FIXED_NOW })).rejects.toMatchObject({ code: "capability_not_enabled" });
     await expect(cancelBooking(repository, verifiedInput)).rejects.toMatchObject({ code: "capability_not_enabled" });
 
@@ -253,12 +253,31 @@ describe("booking feature layer", () => {
 
   it("creates a website booking with a human-friendly reference and validated end time", async () => {
     const repository = new MemoryBookingRepository();
-    const result = await createBooking(repository, {
-      businessId: BUSINESS_ID, serviceId: SERVICE_ID, staffId: STAFF_ID, date: "2026-08-27", startTime: "10:15", customerName: "Nadia", customerEmail: "nadia@example.com", createdVia: "website", audience: "public", now: FIXED_NOW,
+    const result = await createWebsiteBooking(repository, {
+      businessId: BUSINESS_ID, serviceId: SERVICE_ID, staffId: STAFF_ID, date: "2026-08-27", startTime: "10:15", customerName: "Nadia", customerEmail: "nadia@example.com", audience: "public", now: FIXED_NOW,
     }, () => "ARIA-BOOK01");
     expect(result.reference).toBe("ARIA-BOOK01");
     expect(result.endTime).toBe("10:45");
     expect(repository.bookings[0]).toMatchObject({ createdVia: "website", status: "confirmed" });
+  });
+
+  it("keeps website provenance server-controlled when source fields are supplied", async () => {
+    const repository = new MemoryBookingRepository();
+    const input = {
+      businessId: BUSINESS_ID,
+      serviceId: SERVICE_ID,
+      staffId: STAFF_ID,
+      date: "2026-08-27",
+      startTime: "10:15",
+      customerName: "Nadia",
+      customerEmail: "nadia@example.com",
+      audience: "public" as const,
+      now: FIXED_NOW,
+      created_via: "webmcp",
+      source: "webmcp",
+    } as unknown as Parameters<typeof createWebsiteBooking>[1];
+    await createWebsiteBooking(repository, input, () => "ARIA-SOURCE01");
+    expect(repository.bookings[0]).toMatchObject({ createdVia: "website" });
   });
 
   it("rejects a stale slot when a concurrent insert wins", async () => {
@@ -268,8 +287,8 @@ describe("booking feature layer", () => {
       repository.bookings.push(existingBooking({ startTime: record.startTime, endTime: record.endTime }));
       return originalInsert(record);
     };
-    await expect(createBooking(repository, {
-      businessId: BUSINESS_ID, serviceId: SERVICE_ID, staffId: STAFF_ID, date: "2026-08-27", startTime: "10:15", customerName: "Nadia", customerEmail: "nadia@example.com", createdVia: "website", audience: "public", now: FIXED_NOW,
+    await expect(createWebsiteBooking(repository, {
+      businessId: BUSINESS_ID, serviceId: SERVICE_ID, staffId: STAFF_ID, date: "2026-08-27", startTime: "10:15", customerName: "Nadia", customerEmail: "nadia@example.com", audience: "public", now: FIXED_NOW,
     }, () => "ARIA-RACE01")).rejects.toMatchObject({ code: "SLOT_UNAVAILABLE" });
   });
 
@@ -307,8 +326,8 @@ describe("booking feature layer", () => {
 
   it("requires a customer contact method", async () => {
     const repository = new MemoryBookingRepository();
-    await expect(createBooking(repository, {
-      businessId: BUSINESS_ID, serviceId: SERVICE_ID, staffId: STAFF_ID, date: "2026-08-27", startTime: "10:00", customerName: "Nadia", createdVia: "website", audience: "public", now: FIXED_NOW,
+    await expect(createWebsiteBooking(repository, {
+      businessId: BUSINESS_ID, serviceId: SERVICE_ID, staffId: STAFF_ID, date: "2026-08-27", startTime: "10:00", customerName: "Nadia", audience: "public", now: FIXED_NOW,
     })).rejects.toBeInstanceOf(BookingError);
   });
 });

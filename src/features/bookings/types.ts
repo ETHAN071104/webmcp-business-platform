@@ -1,7 +1,7 @@
 import type { Business, BusinessCapabilities, Service, Staff } from "@/types/business";
 
 export type BookingStatus = "confirmed" | "cancelled";
-export type BookingCreatedVia = "website" | "agent";
+export type BookingCreatedVia = "website" | "webmcp";
 export type BookingAudience = "public" | "trusted";
 
 export type AvailabilityRule = {

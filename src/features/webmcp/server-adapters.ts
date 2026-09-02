@@ -1,6 +1,6 @@
 import {
   cancelBooking,
-  createBooking,
+  createWebMCPBooking,
   getAvailableSlots,
   getBooking,
   getEligibleStaff,
@@ -180,10 +180,9 @@ export async function executeBusinessAgentTool(
       }
       case "create_booking": {
         const input = parseAgentToolInput(toolName, rawInput);
-        const booking = await createBooking(repositories.bookings, {
+        const booking = await createWebMCPBooking(repositories.bookings, {
           businessId: business.id,
           ...input,
-          createdVia: "agent",
           audience: "public",
           now: options.now,
         });

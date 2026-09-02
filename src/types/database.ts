@@ -112,7 +112,7 @@ export type BookingRow = {
   end_time: string;
   status: "confirmed" | "cancelled";
   booking_reference: string;
-  created_via: "website" | "agent";
+  created_via: "website" | "webmcp";
   created_at: string;
   updated_at: string;
 };
