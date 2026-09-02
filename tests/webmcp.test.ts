@@ -10,6 +10,7 @@ import {
 } from "@/features/bookings/types";
 import type { BusinessRuntimeRepository } from "@/features/businesses/repository";
 import { getEnabledAgentToolNames, type CapabilityState } from "@/features/capabilities/capabilities";
+import { subscribeWebMCPDiagnostics, type WebMCPDiagnosticsEvent } from "@/features/webmcp/diagnostics";
 import {
   getWebMCPModelContext,
   registerBusinessTools,
@@ -208,6 +209,26 @@ describe("WebMCP lifecycle", () => {
 
     await expect(waitForWebMCPModelContext(source, { retryDelaysMs: [0] })).resolves.toBe(context);
     expect(reads).toBe(2);
+  });
+
+  it("emits tool names and sanitized registration errors for diagnostics", async () => {
+    const events: WebMCPDiagnosticsEvent[] = [];
+    const unsubscribe = subscribeWebMCPDiagnostics((event) => events.push(event));
+    const context: WebMCPModelContext = {
+      async registerTool(tool) {
+        if (tool.name === "list_staff") throw new Error("simulated registration failure");
+      },
+    };
+
+    try {
+      const registration = registerBusinessTools(context, "aria-hair", getWebMCPToolDefinitions(state()));
+      await expect(registration.ready).rejects.toThrow("simulated registration failure");
+    } finally {
+      unsubscribe();
+    }
+
+    expect(events).toContainEqual(expect.objectContaining({ type: "registration_started", expectedToolCount: 9 }));
+    expect(events).toContainEqual(expect.objectContaining({ type: "tool_registration_failed", name: "list_staff", error: "Error: simulated registration failure" }));
   });
 
   it("reuses an unchanged registration across rerenders", async () => {

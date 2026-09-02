@@ -1,6 +1,7 @@
 import { callBusinessAgentTool } from "@/features/webmcp/tool-adapters";
 import type { WebMCPToolMetadata } from "@/features/webmcp/tool-definitions";
 import type { WebMCPDocument, WebMCPModelContext, WebMCPTool } from "@/features/webmcp/types";
+import { emitWebMCPDiagnostics } from "@/features/webmcp/diagnostics";
 
 export type WebMCPRegistration = {
   names: string[];
@@ -29,6 +30,11 @@ function debugWebMCP(message: string, details?: Record<string, unknown>): void {
   } else {
     console.debug(`[WebMCP] ${message}`);
   }
+}
+
+function formatRegistrationError(error: unknown): string {
+  const message = error instanceof Error ? `${error.name}: ${error.message}` : "Unknown registration error";
+  return message.slice(0, 240);
 }
 
 export function getWebMCPModelContext(source: Document): WebMCPModelContext | null {
@@ -65,11 +71,19 @@ export function waitForWebMCPModelContext(
 
       const context = getWebMCPModelContext(source);
       if (context) {
+        emitWebMCPDiagnostics({ type: "model_context", status: "detected" });
         finish(context);
         return;
       }
 
+      if (retryIndex === 0) {
+        debugWebMCP("modelContext not detected; retrying");
+        emitWebMCPDiagnostics({ type: "model_context", status: "missing" });
+      }
+
       if (retryIndex >= retryDelays.length) {
+        debugWebMCP("modelContext unavailable after bounded readiness retries");
+        emitWebMCPDiagnostics({ type: "model_context", status: "unavailable" });
         finish(null);
         return;
       }
@@ -110,16 +124,22 @@ export function registerBusinessTools(
   }));
 
   debugWebMCP("registration started", { businessSlug, toolCount: tools.length });
+  emitWebMCPDiagnostics({ type: "registration_started", businessSlug, expectedToolCount: tools.length });
 
   let registration: WebMCPRegistration | null = null;
   const ready = Promise.all(
     tools.map(async (tool) => {
       try {
         await modelContext.registerTool(tool, { signal: controller.signal });
-        if (!controller.signal.aborted) debugWebMCP("tool registered", { name: tool.name });
+        if (!controller.signal.aborted) {
+          debugWebMCP("tool registered", { name: tool.name });
+          emitWebMCPDiagnostics({ type: "tool_registered", name: tool.name });
+        }
       } catch (error) {
         if (!controller.signal.aborted) {
-          console.warn("[WebMCP] tool registration failed", { name: tool.name, error: error instanceof Error ? error.name : "unknown_error" });
+          const formattedError = formatRegistrationError(error);
+          console.warn("[WebMCP] tool registration failed", { name: tool.name, error: formattedError });
+          emitWebMCPDiagnostics({ type: "tool_registration_failed", name: tool.name, error: formattedError });
         }
         throw error;
       }
@@ -141,6 +161,7 @@ export function registerBusinessTools(
       if (controller.signal.aborted) return;
       controller.abort();
       debugWebMCP("cleanup/unregistration", { businessSlug, toolCount: tools.length });
+      emitWebMCPDiagnostics({ type: "cleanup", businessSlug, toolCount: tools.length });
       if (activeRegistrations.get(modelContext)?.registration === registration) activeRegistrations.delete(modelContext);
     },
   };

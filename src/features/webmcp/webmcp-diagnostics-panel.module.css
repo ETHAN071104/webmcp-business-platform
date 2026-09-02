@@ -1,0 +1,105 @@
+.panel {
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 100;
+  width: min(24rem, calc(100vw - 2rem));
+  max-height: min(34rem, calc(100vh - 2rem));
+  overflow: auto;
+  padding: 0.85rem;
+  color: #e8eef8;
+  background: #111827;
+  border: 1px solid #334155;
+  border-radius: 0.65rem;
+  box-shadow: 0 1rem 3rem rgb(15 23 42 / 30%);
+  font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.65rem;
+}
+
+.heading strong {
+  color: #fff;
+  font-size: 13px;
+}
+
+.heading span,
+.label,
+.eventTime {
+  color: #94a3b8;
+}
+
+.summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.25rem 0.75rem;
+  margin: 0;
+}
+
+.summary dt,
+.summary dd {
+  margin: 0;
+}
+
+.summary dd {
+  color: #bfdbfe;
+  text-align: right;
+}
+
+.success {
+  color: #86efac !important;
+}
+
+.warning {
+  color: #fde68a !important;
+}
+
+.failure {
+  color: #fca5a5 !important;
+}
+
+.section {
+  margin-top: 0.75rem;
+  padding-top: 0.65rem;
+  border-top: 1px solid #334155;
+}
+
+.section h2 {
+  margin: 0 0 0.35rem;
+  color: #cbd5e1;
+  font: inherit;
+  font-weight: 700;
+}
+
+.toolList,
+.eventList {
+  display: grid;
+  gap: 0.25rem;
+  margin: 0;
+  padding-left: 1.1rem;
+}
+
+.toolList li,
+.eventList li {
+  overflow-wrap: anywhere;
+}
+
+.eventList {
+  max-height: 10rem;
+  overflow: auto;
+}
+
+.eventTime {
+  margin-right: 0.4rem;
+}
+
+.eventLog summary {
+  cursor: pointer;
+  color: #cbd5e1;
+  font-weight: 700;
+}

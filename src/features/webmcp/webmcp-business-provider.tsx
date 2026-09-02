@@ -5,6 +5,7 @@ import { useEffect } from "react";
 import { registerBusinessTools, waitForWebMCPModelContext } from "@/features/webmcp/register-business-tools";
 import { WEBMCP_TOOL_DEFINITIONS } from "@/features/webmcp/tool-definitions";
 import type { WebMCPToolName } from "@/features/webmcp/types";
+import { WebMCPDiagnosticsPanel } from "@/features/webmcp/webmcp-diagnostics-panel";
 
 export function WebMCPBusinessProvider({
   businessSlug,
@@ -42,5 +43,7 @@ export function WebMCPBusinessProvider({
     };
   }, [businessSlug, toolProjectionKey]);
 
-  return null;
+  return businessSlug === "aria-hair"
+    ? <WebMCPDiagnosticsPanel key={businessSlug} businessSlug={businessSlug} expectedToolCount={agentToolProjection.length} />
+    : null;
 }
