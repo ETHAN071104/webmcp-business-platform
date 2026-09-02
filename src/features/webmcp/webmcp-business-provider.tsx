@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 
-import { getWebMCPModelContext, registerBusinessTools } from "@/features/webmcp/register-business-tools";
+import { registerBusinessTools, waitForWebMCPModelContext } from "@/features/webmcp/register-business-tools";
 import { WEBMCP_TOOL_DEFINITIONS } from "@/features/webmcp/tool-definitions";
 import type { WebMCPToolName } from "@/features/webmcp/types";
 
@@ -13,17 +13,34 @@ export function WebMCPBusinessProvider({
   businessSlug: string;
   agentToolProjection: WebMCPToolName[];
 }) {
-  useEffect(() => {
-    const modelContext = getWebMCPModelContext(document);
-    if (!modelContext) return;
+  const toolProjectionKey = agentToolProjection.join("\u0000");
 
-    const definitions = agentToolProjection.map((name) => WEBMCP_TOOL_DEFINITIONS[name]);
-    const registration = registerBusinessTools(modelContext, businessSlug, definitions);
-    void registration.ready.catch((error: unknown) => {
-      if (process.env.NODE_ENV === "development") console.warn("WebMCP tool registration failed", error);
+  useEffect(() => {
+    let disposed = false;
+    let registration: ReturnType<typeof registerBusinessTools> | null = null;
+    const readinessController = new AbortController();
+
+    const definitions = toolProjectionKey
+      .split("\u0000")
+      .filter(Boolean)
+      .map((name) => WEBMCP_TOOL_DEFINITIONS[name as WebMCPToolName]);
+    void waitForWebMCPModelContext(document, { signal: readinessController.signal }).then((modelContext) => {
+      if (!modelContext || disposed) {
+        if (!disposed) console.debug("[WebMCP] modelContext unavailable after bounded readiness retries", { businessSlug });
+        return;
+      }
+
+      console.debug("[WebMCP] modelContext detected", { businessSlug });
+      registration = registerBusinessTools(modelContext, businessSlug, definitions);
+      void registration.ready.catch(() => undefined);
     });
-    return () => registration.dispose();
-  }, [businessSlug, agentToolProjection]);
+
+    return () => {
+      disposed = true;
+      readinessController.abort();
+      registration?.dispose();
+    };
+  }, [businessSlug, toolProjectionKey]);
 
   return null;
 }

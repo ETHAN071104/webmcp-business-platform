@@ -13,6 +13,7 @@ import { getEnabledAgentToolNames, type CapabilityState } from "@/features/capab
 import {
   getWebMCPModelContext,
   registerBusinessTools,
+  waitForWebMCPModelContext,
 } from "@/features/webmcp/register-business-tools";
 import { parseAgentToolInput } from "@/features/webmcp/schemas";
 import { executeBusinessAgentTool } from "@/features/webmcp/server-adapters";
@@ -193,7 +194,40 @@ describe("WebMCP schemas", () => {
 });
 
 describe("WebMCP lifecycle", () => {
-  it("aborts old registrations, cleans up, and safely detects unsupported documents", async () => {
+  it("waits for a delayed modelContext to become available", async () => {
+    const context: WebMCPModelContext = { async registerTool() {} };
+    let reads = 0;
+    const source = {} as Document;
+    Object.defineProperty(source, "modelContext", {
+      configurable: true,
+      get: () => {
+        reads += 1;
+        return reads >= 2 ? context : undefined;
+      },
+    });
+
+    await expect(waitForWebMCPModelContext(source, { retryDelaysMs: [0] })).resolves.toBe(context);
+    expect(reads).toBe(2);
+  });
+
+  it("reuses an unchanged registration across rerenders", async () => {
+    const records: Array<{ signal?: AbortSignal }> = [];
+    const context: WebMCPModelContext = {
+      async registerTool(_tool, options) { records.push({ signal: options?.signal }); },
+    };
+    const definitions = getWebMCPToolDefinitions(state());
+    const first = registerBusinessTools(context, "aria-hair", definitions);
+    await first.ready;
+    const rerender = registerBusinessTools(context, "aria-hair", [...definitions]);
+
+    expect(rerender).toBe(first);
+    expect(records).toHaveLength(9);
+    expect(records.every((record) => !record.signal?.aborted)).toBe(true);
+    rerender.dispose();
+    expect(records.every((record) => record.signal?.aborted)).toBe(true);
+  });
+
+  it("aborts old registrations, restores Booking tools, and safely detects unsupported documents", async () => {
     const records: Array<{ tool: WebMCPTool; signal?: AbortSignal }> = [];
     const context: WebMCPModelContext = {
       async registerTool(tool, options) { records.push({ tool, signal: options?.signal }); },
@@ -204,8 +238,14 @@ describe("WebMCP lifecycle", () => {
     await second.ready;
     expect(records.slice(0, 9).every((record) => record.signal?.aborted)).toBe(true);
     expect(second.names).toHaveLength(5);
-    second.dispose();
-    expect(records.slice(9).every((record) => record.signal?.aborted)).toBe(true);
+    expect(records.slice(9).every((record) => !record.signal?.aborted)).toBe(true);
+    const third = registerBusinessTools(context, "aria-hair", getWebMCPToolDefinitions(state()));
+    await third.ready;
+    expect(records.slice(9, 14).every((record) => record.signal?.aborted)).toBe(true);
+    expect(third.names).toHaveLength(9);
+    expect(records.slice(14).every((record) => !record.signal?.aborted)).toBe(true);
+    third.dispose();
+    expect(records.slice(14).every((record) => record.signal?.aborted)).toBe(true);
     expect(getWebMCPModelContext({} as Document)).toBeNull();
   });
 });
