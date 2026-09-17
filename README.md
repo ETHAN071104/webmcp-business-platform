@@ -12,6 +12,8 @@ polished Hair Salon reference implementation, not a salon-specific product archi
 The same capability registry governs the human website, shared backend permissions, and
 the tools available to AI agents.
 
+[Live demo](https://webmcp-business-platform.vercel.app)
+
 ## Local setup
 
 1. Install dependencies:
@@ -189,6 +191,13 @@ The Admin Console includes business, capability, service, staff, availability, c
 appearance, Human View, Agent View, and publish-readiness surfaces. Authentication,
 payments, messaging, analytics, custom domains, final publishing, and additional business
 engines remain intentionally deferred.
+
+## Current limitations
+
+- WebMCP support depends on an experimental browser capability and is not universally available.
+- Aria Hair Studio and Luna Wellness are reference businesses rather than production tenants.
+- Payments, messaging, analytics, custom domains, and additional business engines are outside the current MVP.
+- Production use still requires deployment-specific authentication, operational monitoring, and abuse controls.
 
 ## License
 
